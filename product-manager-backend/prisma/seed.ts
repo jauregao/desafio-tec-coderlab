@@ -5,7 +5,7 @@ import { PrismaClient } from '../generated/prisma/client';
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL nao foi definida.');
+  throw new Error('DATABASE_URL is not defined. Please set it in the environment variables.');
 }
 
 const prisma = new PrismaClient({
@@ -45,21 +45,21 @@ function validateNoHierarchyLoops(seeds: CategorySeed[]): void {
 
     if (visiting.has(key)) {
       throw new Error(
-        `Categoria com loop detectado: ${[...chain, key].join(' -> ')}`,
+        `Category loop detected: ${[...chain, key].join(' -> ')}`,
       );
     }
 
     const seed = byKey.get(key);
 
     if (!seed) {
-      throw new Error(`Categoria referenciada nao encontrada: ${key}`);
+      throw new Error(`Referenced category not found: ${key}`);
     }
 
     visiting.add(key);
 
     if (seed.parentKey) {
       if (seed.parentKey === seed.key) {
-        throw new Error(`Categoria nao pode ser pai dela mesma: ${seed.key}`);
+        throw new Error(`Category cannot be its own parent: ${seed.key}`);
       }
 
       visit(seed.parentKey, [...chain, key]);
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 
       if (seed.parentKey && parentId == null) {
         throw new Error(
-          `Pai nao encontrado para categoria ${seed.key}: ${seed.parentKey}`,
+          `Parent not found for category ${seed.key}: ${seed.parentKey}`,
         );
       }
 
@@ -104,12 +104,12 @@ async function main(): Promise<void> {
     }
   });
 
-  console.log(`Seed concluido: ${categorySeeds.length} categorias criadas.`);
+  console.log(`Seed completed: ${categorySeeds.length} categories created.`);
 }
 
 main()
   .catch((error) => {
-    console.error('Erro ao executar seed:', error);
+    console.error('Error occurred while running seed:', error);
     process.exitCode = 1;
   })
   .finally(async () => {
