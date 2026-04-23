@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: desafio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: desafio_coderlab
+    volumes:
+      - desafio-coderlab-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d desafio_coderlab" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - appnet
+
+  web:
+    build:
+      context: ./product-manager
+      dockerfile: Dockerfile
+    image: desafio-coderlab-web:latest
+    container_name: desafio-web
+    ports:
+      - "5173:3000"
+    command: npm run start
+    environment:
+      - NODE_ENV=production
+    networks:
+      - appnet
+
+  api:
+    build:
+      context: ./product-manager-backend
+      dockerfile: Dockerfile
+    image: desafio-coderlab-api:latest
+    container_name: desafio-api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    command: npm run start:prod
+    environment:
+      - NODE_ENV=production
+      - CLIENT_ORIGIN=http://localhost:5173
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/desafio_coderlab?schema=public
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  desafio-coderlab-pgdata:
