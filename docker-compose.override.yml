@@ -1,0 +1,34 @@
+services:
+  web:
+    volumes:
+      - ./product-manager:/app
+      - /app/node_modules
+    ports:
+      - "5173:3000"
+    command: sh -c "if [ ! -x node_modules/.bin/react-router ]; then npm ci; fi &&
+      npm run dev -- --host 0.0.0.0 --port 3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
+    networks:
+      - appnet
+
+  api:
+    volumes:
+      - ./product-manager-backend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -c "if [ ! -x node_modules/.bin/nest ]; then npm ci; fi && npx
+      prisma generate && npm run start:dev"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/desafio_coderlab?schema=public
+      - NODE_ENV=development
+      - CLIENT_ORIGIN=http://localhost:5173
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
