@@ -49,10 +49,25 @@ export class ProductsService {
             mode: 'insensitive',
           },
         },
+        include: {
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
       });
     }
 
-    return this.prisma.product.findMany();
+    return this.prisma.product.findMany({
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
   }
 
   async getOne(id: number) {

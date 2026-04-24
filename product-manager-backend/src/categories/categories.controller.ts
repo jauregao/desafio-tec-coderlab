@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Delete,
   Param,
   ParseIntPipe,
   Patch,
@@ -25,11 +26,21 @@ export class CategoriesController {
     return this.categoriesService.getAll();
   }
 
+  @Get('tree')
+  getCategoryTree() {
+    return this.categoriesService.getCategoryTree();
+  }
+
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ) {
     return this.categoriesService.update(id, updateCategoryDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.categoriesService.remove(id);
   }
 }
