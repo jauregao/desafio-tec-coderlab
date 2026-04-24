@@ -10,6 +10,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
+      - VITE_API_BASE_URL=http://localhost:3000
     networks:
       - appnet
 
@@ -20,7 +21,7 @@ services:
     ports:
       - "3000:3000"
     command: sh -c "if [ ! -x node_modules/.bin/nest ]; then npm ci; fi && npx
-      prisma generate && npm run start:dev"
+      prisma generate && npm run db:prepare && npm run start:dev"
     environment:
       - CHOKIDAR_USEPOLLING=true
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/desafio_coderlab?schema=public
