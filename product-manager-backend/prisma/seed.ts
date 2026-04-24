@@ -18,6 +18,13 @@ type CategorySeed = {
   parentKey?: string;
 };
 
+type ProductSeed = {
+  name: string;
+  description: string;
+  price: number;
+  categoryKeys: string[];
+};
+
 const categorySeeds: CategorySeed[] = [
   { key: 'electronics', name: 'Eletrônicos' },
   { key: 'computers', name: 'Computadores', parentKey: 'electronics' },
@@ -31,6 +38,33 @@ const categorySeeds: CategorySeed[] = [
   { key: 'fashion', name: 'Moda' },
   { key: 'mens', name: 'Masculino', parentKey: 'fashion' },
   { key: 'womens', name: 'Feminino', parentKey: 'fashion' },
+];
+
+const productSeeds: ProductSeed[] = [
+  {
+    name: 'Notebook Ultra 14',
+    description: 'Notebook leve para produtividade e estudos',
+    price: 4999.9,
+    categoryKeys: ['notebooks', 'accessories'],
+  },
+  {
+    name: 'Smartphone Pro X',
+    description: 'Celular com câmera avançada e bateria de longa duração',
+    price: 3899.9,
+    categoryKeys: ['phones', 'accessories'],
+  },
+  {
+    name: 'Cadeira Home Office',
+    description: 'Cadeira ergonômica para ambiente de trabalho em casa',
+    price: 899.0,
+    categoryKeys: ['furniture', 'home'],
+  },
+  {
+    name: 'Camiseta Básica',
+    description: 'Camiseta confortável para o dia a dia',
+    price: 79.9,
+    categoryKeys: ['mens', 'womens'],
+  },
 ];
 
 function validateNoHierarchyLoops(seeds: CategorySeed[]): void {
@@ -102,9 +136,38 @@ async function main(): Promise<void> {
 
       createdIds.set(seed.key, category.id);
     }
+
+    for (const productSeed of productSeeds) {
+      const categoryIds = productSeed.categoryKeys.map((key) => {
+        const categoryId = createdIds.get(key);
+
+        if (!categoryId) {
+          throw new Error(`Category not found for product seed: ${key}`);
+        }
+
+        return categoryId;
+      });
+
+      const product = await tx.product.create({
+        data: {
+          name: productSeed.name,
+          description: productSeed.description,
+          price: productSeed.price,
+        },
+      });
+
+      await tx.productCategory.createMany({
+        data: categoryIds.map((categoryId) => ({
+          productId: product.id,
+          categoryId,
+        })),
+      });
+    }
   });
 
-  console.log(`Seed completed: ${categorySeeds.length} categories created.`);
+  console.log(
+    `Seed completed: ${categorySeeds.length} categories and ${productSeeds.length} products created.`,
+  );
 }
 
 main()
