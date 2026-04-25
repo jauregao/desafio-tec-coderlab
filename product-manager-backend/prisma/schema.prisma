@@ -17,39 +17,28 @@ model Product {
   name        String
   description String
   price       Float
+  categoryId  Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  categories ProductCategory[]
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([categoryId])
   @@map("products")
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
+  id       Int    @id @default(autoincrement())
   name     String
   parentId Int?
 
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   children Category[] @relation("CategoryHierarchy")
 
-  products ProductCategory[]
+  products Product[]
 
   @@unique([name, parentId])
   @@index([parentId])
-
   @@map("categories")
-}
-
-model ProductCategory {
-  productId  Int
-  categoryId Int
-
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-
-  @@id([productId, categoryId])
-  @@index([categoryId])
-  @@map("product_categories")
 }

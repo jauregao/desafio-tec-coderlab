@@ -22,7 +22,7 @@ type ProductSeed = {
   name: string;
   description: string;
   price: number;
-  categoryKeys: string[];
+  categoryKey: string;
 };
 
 const categorySeeds: CategorySeed[] = [
@@ -45,25 +45,25 @@ const productSeeds: ProductSeed[] = [
     name: 'Notebook Ultra 14',
     description: 'Notebook leve para produtividade e estudos',
     price: 4999.9,
-    categoryKeys: ['notebooks', 'accessories'],
+    categoryKey: 'notebooks',
   },
   {
     name: 'Smartphone Pro X',
     description: 'Celular com câmera avançada e bateria de longa duração',
     price: 3899.9,
-    categoryKeys: ['phones', 'accessories'],
+    categoryKey: 'phones',
   },
   {
     name: 'Cadeira Home Office',
     description: 'Cadeira ergonômica para ambiente de trabalho em casa',
     price: 899.0,
-    categoryKeys: ['furniture', 'home'],
+    categoryKey: 'furniture',
   },
   {
     name: 'Camiseta Básica',
     description: 'Camiseta confortável para o dia a dia',
     price: 79.9,
-    categoryKeys: ['mens', 'womens'],
+    categoryKey: 'mens',
   },
 ];
 
@@ -112,7 +112,6 @@ async function main(): Promise<void> {
   validateNoHierarchyLoops(categorySeeds);
 
   await prisma.$transaction(async (tx) => {
-    await tx.productCategory.deleteMany();
     await tx.product.deleteMany();
     await tx.category.deleteMany();
 
@@ -138,29 +137,21 @@ async function main(): Promise<void> {
     }
 
     for (const productSeed of productSeeds) {
-      const categoryIds = productSeed.categoryKeys.map((key) => {
-        const categoryId = createdIds.get(key);
+      const categoryId = createdIds.get(productSeed.categoryKey);
 
-        if (!categoryId) {
-          throw new Error(`Category not found for product seed: ${key}`);
-        }
+      if (!categoryId) {
+        throw new Error(
+          `Category not found for product seed: ${productSeed.categoryKey}`,
+        );
+      }
 
-        return categoryId;
-      });
-
-      const product = await tx.product.create({
+      await tx.product.create({
         data: {
           name: productSeed.name,
           description: productSeed.description,
           price: productSeed.price,
-        },
-      });
-
-      await tx.productCategory.createMany({
-        data: categoryIds.map((categoryId) => ({
-          productId: product.id,
           categoryId,
-        })),
+        },
       });
     }
   });
