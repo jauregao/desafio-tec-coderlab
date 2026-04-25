@@ -24,6 +24,38 @@ function createToastId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function ToastCard({
+  toast,
+  onDismiss,
+}: {
+  toast: ToastMessage;
+  onDismiss: (id: string) => void;
+}) {
+  return (
+    <div
+      className="rounded-xl border border-[#D9D9D9] bg-white p-4 shadow-lg"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[#07010F]">{toast.title}</p>
+          {toast.description && (
+            <p className="mt-1 text-sm text-[#240D49]/80">{toast.description}</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onDismiss(toast.id)}
+          className="text-sm text-[#240D49]/80 hover:text-[#240D49]"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -75,28 +107,7 @@ export function ToastHost() {
   return (
     <div className="fixed right-4 top-4 z-50 grid w-full max-w-sm gap-3">
       {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className="rounded-xl border border-[#D9D9D9] bg-white p-4 shadow-lg"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-[#07010F]">{toast.title}</p>
-              {toast.description && (
-                <p className="mt-1 text-sm text-[#240D49]/80">{toast.description}</p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => dismissToast(toast.id)}
-              className="text-sm text-[#240D49]/80 hover:text-[#240D49]"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
+        <ToastCard key={toast.id} toast={toast} onDismiss={dismissToast} />
       ))}
     </div>
   );
