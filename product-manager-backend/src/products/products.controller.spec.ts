@@ -31,7 +31,7 @@ describe('ProductsController', () => {
       name: 'Notebook',
       description: 'desc',
       price: 10,
-      categoryIds: [1],
+      categoryId: 1,
     };
     const expected = { id: 1, ...dto };
     serviceMock.create.mockResolvedValue(expected);

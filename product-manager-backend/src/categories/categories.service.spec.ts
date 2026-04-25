@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesService } from './categories.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -9,6 +13,7 @@ describe('CategoriesService', () => {
   const prismaMock = {
     category: {
       create: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -42,6 +47,7 @@ describe('CategoriesService', () => {
 
   it('create should persist root category when parentId is not provided', async () => {
     const created = { id: 1, name: 'Root' };
+    prismaMock.category.findFirst.mockResolvedValue(null);
     prismaMock.category.create.mockResolvedValue(created);
 
     const result = await service.create({ name: 'Root' });
@@ -53,6 +59,7 @@ describe('CategoriesService', () => {
   });
 
   it('create should persist child category when parentId exists', async () => {
+    prismaMock.category.findFirst.mockResolvedValue(null);
     prismaMock.category.findUnique.mockResolvedValue({ id: 10 });
     prismaMock.category.create.mockResolvedValue({ id: 11, parentId: 10 });
 
@@ -65,7 +72,22 @@ describe('CategoriesService', () => {
     expect(result).toEqual({ id: 11, parentId: 10 });
   });
 
+  it('create should normalize category name with first letter uppercase', async () => {
+    prismaMock.category.findFirst.mockResolvedValue(null);
+    prismaMock.category.create.mockResolvedValue({
+      id: 12,
+      name: 'Acessorios',
+    });
+
+    await service.create({ name: 'acessorios' });
+
+    expect(prismaMock.category.create).toHaveBeenCalledWith({
+      data: { name: 'Acessorios', parentId: undefined },
+    });
+  });
+
   it('create should throw NotFoundException when parentId does not exist', async () => {
+    prismaMock.category.findFirst.mockResolvedValue(null);
     prismaMock.category.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -73,8 +95,25 @@ describe('CategoriesService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('create should throw ConflictException when category name already exists globally', async () => {
+    prismaMock.category.findFirst.mockResolvedValue({
+      id: 99,
+      name: 'Panelas',
+      parentId: 1,
+    });
+
+    await expect(
+      service.create({ name: 'panelas', parentId: 2 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('update should update only name', async () => {
-    prismaMock.category.findUnique.mockResolvedValue({ id: 1 });
+    prismaMock.category.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'Current',
+      parentId: null,
+    });
+    prismaMock.category.findFirst.mockResolvedValue(null);
     prismaMock.category.update.mockResolvedValue({ id: 1, name: 'Updated' });
 
     const result = await service.update(1, { name: 'Updated' });
@@ -88,9 +127,10 @@ describe('CategoriesService', () => {
 
   it('update should update parentId when target parent is valid', async () => {
     prismaMock.category.findUnique
-      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce({ id: 1, name: 'Current', parentId: null })
       .mockResolvedValueOnce({ id: 3 })
       .mockResolvedValueOnce({ parentId: null });
+    prismaMock.category.findFirst.mockResolvedValue(null);
     prismaMock.category.update.mockResolvedValue({ id: 1, parentId: 3 });
 
     const result = await service.update(1, { parentId: 3 });
@@ -98,8 +138,29 @@ describe('CategoriesService', () => {
     expect(result).toEqual({ id: 1, parentId: 3 });
   });
 
+  it('update should normalize category name with first letter uppercase', async () => {
+    prismaMock.category.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'Current',
+      parentId: null,
+    });
+    prismaMock.category.findFirst.mockResolvedValue(null);
+    prismaMock.category.update.mockResolvedValue({ id: 1, name: 'Acessorios' });
+
+    await service.update(1, { name: 'acessorios' });
+
+    expect(prismaMock.category.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { name: 'Acessorios' },
+    });
+  });
+
   it('update should throw BadRequestException for self loop', async () => {
-    prismaMock.category.findUnique.mockResolvedValue({ id: 1 });
+    prismaMock.category.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'Current',
+      parentId: null,
+    });
 
     await expect(service.update(1, { parentId: 1 })).rejects.toBeInstanceOf(
       BadRequestException,
@@ -108,7 +169,7 @@ describe('CategoriesService', () => {
 
   it('update should throw BadRequestException for indirect loop', async () => {
     prismaMock.category.findUnique
-      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce({ id: 1, name: 'Current', parentId: null })
       .mockResolvedValueOnce({ id: 2 })
       .mockResolvedValueOnce({ parentId: 1 });
 
@@ -118,7 +179,11 @@ describe('CategoriesService', () => {
   });
 
   it('update should throw BadRequestException when no valid fields are provided', async () => {
-    prismaMock.category.findUnique.mockResolvedValue({ id: 1 });
+    prismaMock.category.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'Current',
+      parentId: null,
+    });
 
     await expect(service.update(1, {})).rejects.toBeInstanceOf(
       BadRequestException,
@@ -131,5 +196,22 @@ describe('CategoriesService', () => {
     await expect(service.update(123, { name: 'x' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('update should throw ConflictException when category name already exists globally', async () => {
+    prismaMock.category.findUnique.mockResolvedValue({
+      id: 1,
+      name: 'Current',
+      parentId: null,
+    });
+    prismaMock.category.findFirst.mockResolvedValue({
+      id: 2,
+      name: 'Panelas',
+      parentId: 5,
+    });
+
+    await expect(
+      service.update(1, { name: 'panelas' }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

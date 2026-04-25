@@ -12,31 +12,13 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto) {
-    const { categoryIds, ...productData } = createProductDto;
+    await this.ensureCategoryExists(createProductDto.categoryId);
 
-    await this.ensureCategoriesExist(categoryIds);
-    await this.ensureNoSiblingCategories(categoryIds);
-
-    return this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.create({ data: productData });
-
-      await tx.productCategory.createMany({
-        data: categoryIds.map((categoryId) => ({
-          productId: product.id,
-          categoryId,
-        })),
-      });
-
-      return tx.product.findUnique({
-        where: { id: product.id },
-        include: {
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      });
+    return this.prisma.product.create({
+      data: createProductDto,
+      include: {
+        category: true,
+      },
     });
   }
 
@@ -50,22 +32,14 @@ export class ProductsService {
           },
         },
         include: {
-          categories: {
-            include: {
-              category: true,
-            },
-          },
+          category: true,
         },
       });
     }
 
     return this.prisma.product.findMany({
       include: {
-        categories: {
-          include: {
-            category: true,
-          },
-        },
+        category: true,
       },
     });
   }
@@ -74,11 +48,7 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
-        categories: {
-          include: {
-            category: true,
-          },
-        },
+        category: true,
       },
     });
 
@@ -98,39 +68,16 @@ export class ProductsService {
       throw new NotFoundException(`Product with id ${id} not found`);
     }
 
-    const { categoryIds, ...productData } = updateProductDto;
-
-    if (categoryIds) {
-      await this.ensureCategoriesExist(categoryIds);
-      await this.ensureNoSiblingCategories(categoryIds);
+    if (updateProductDto.categoryId !== undefined) {
+      await this.ensureCategoryExists(updateProductDto.categoryId);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.product.update({
-        where: { id },
-        data: productData,
-      });
-
-      if (categoryIds) {
-        await tx.productCategory.deleteMany({ where: { productId: id } });
-        await tx.productCategory.createMany({
-          data: categoryIds.map((categoryId) => ({
-            productId: id,
-            categoryId,
-          })),
-        });
-      }
-
-      return tx.product.findUnique({
-        where: { id },
-        include: {
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      });
+    return this.prisma.product.update({
+      where: { id },
+      data: updateProductDto,
+      include: {
+        category: true,
+      },
     });
   }
 
@@ -147,43 +94,14 @@ export class ProductsService {
     return { message: `Product with id ${id} deleted successfully` };
   }
 
-  private async ensureCategoriesExist(categoryIds: number[]) {
-    const uniqueCategoryIds = [...new Set(categoryIds)];
-
-    if (uniqueCategoryIds.length === 0) {
-      throw new BadRequestException('Product must have at least one category');
-    }
-
-    const categoriesCount = await this.prisma.category.count({
-      where: { id: { in: uniqueCategoryIds } },
+  private async ensureCategoryExists(categoryId: number) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
     });
 
-    if (categoriesCount !== uniqueCategoryIds.length) {
-      throw new BadRequestException('One or more categories do not exist');
-    }
-  }
-
-  private async ensureNoSiblingCategories(categoryIds: number[]) {
-    const categories = await this.prisma.category.findMany({
-      where: {
-        id: { in: categoryIds },
-      },
-      select: {
-        id: true,
-        parentId: true,
-      },
-    });
-
-    const parentIds = categories
-      .map((c) => c.parentId)
-      .filter((p) => p !== null);
-
-    const uniqueParentIds = new Set(parentIds);
-
-    if (uniqueParentIds.size !== parentIds.length) {
-      throw new BadRequestException(
-        'Product cannot have multiple categories with the same parent',
-      );
+    if (!category) {
+      throw new BadRequestException('Category does not exist');
     }
   }
 }

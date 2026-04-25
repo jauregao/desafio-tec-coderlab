@@ -16,10 +16,9 @@ export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createCategoryDto: CreateCategoryDto) {
-    await this.ensureNoDuplicateCategoryName(
-      createCategoryDto.name,
-      createCategoryDto.parentId,
-    );
+    const normalizedName = this.normalizeCategoryName(createCategoryDto.name);
+
+    await this.ensureNoDuplicateCategoryName(normalizedName);
 
     if (createCategoryDto.parentId !== undefined) {
       await this.ensureCategoryExists(createCategoryDto.parentId);
@@ -27,7 +26,7 @@ export class CategoriesService {
 
     return this.prisma.category.create({
       data: {
-        name: createCategoryDto.name,
+        name: normalizedName,
         parentId: createCategoryDto.parentId,
       },
     });
@@ -93,7 +92,18 @@ export class CategoriesService {
   }
 
   async update(id: number, updateCategoryDto: UpdateCategoryDto) {
-    await this.ensureCategoryExists(id);
+    const existingCategory = await this.prisma.category.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        parentId: true,
+      },
+    });
+
+    if (!existingCategory) {
+      throw new NotFoundException(`Category with id ${id} not found`);
+    }
 
     const hasNameToUpdate = updateCategoryDto.name !== undefined;
     const hasParentIdToUpdate = updateCategoryDto.parentId !== undefined;
@@ -107,8 +117,10 @@ export class CategoriesService {
     }
 
     const normalizedName = hasNameToUpdate
-      ? updateCategoryDto.name.trim().toLowerCase()
-      : undefined;
+      ? this.normalizeCategoryName(updateCategoryDto.name)
+      : existingCategory.name;
+    const nextName = normalizedName;
+    await this.ensureNoDuplicateCategoryName(nextName, id);
 
     return this.prisma.category.update({
       where: { id },
@@ -126,11 +138,11 @@ export class CategoriesService {
   async remove(id: number) {
     await this.ensureCategoryExists(id);
 
-    const [childrenCount, productLinksCount] = await Promise.all([
+    const [childrenCount, productsCount] = await Promise.all([
       this.prisma.category.count({
         where: { parentId: id },
       }),
-      this.prisma.productCategory.count({
+      this.prisma.product.count({
         where: { categoryId: id },
       }),
     ]);
@@ -141,16 +153,14 @@ export class CategoriesService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (productLinksCount > 0) {
-        await tx.productCategory.deleteMany({
-          where: { categoryId: id },
-        });
-      }
+    if (productsCount > 0) {
+      throw new BadRequestException(
+        'Category cannot be deleted while it has linked products',
+      );
+    }
 
-      await tx.category.delete({
-        where: { id },
-      });
+    await this.prisma.category.delete({
+      where: { id },
     });
 
     return { message: `Category with id ${id} deleted successfully` };
@@ -205,21 +215,36 @@ export class CategoriesService {
     }
   }
 
-  private async ensureNoDuplicateCategoryName(name: string, parentId?: number) {
+  private async ensureNoDuplicateCategoryName(
+    name: string,
+    excludeCategoryId?: number,
+  ) {
     const existingCategory = await this.prisma.category.findFirst({
       where: {
         name: {
           equals: name,
           mode: 'insensitive',
         },
-        parentId: parentId ?? null,
+        ...(excludeCategoryId && {
+          id: {
+            not: excludeCategoryId,
+          },
+        }),
       },
     });
 
     if (existingCategory) {
-      throw new ConflictException(
-        'Category with this name already exists in this level',
-      );
+      throw new ConflictException('Category with this name already exists');
     }
+  }
+
+  private normalizeCategoryName(name: string) {
+    const trimmedName = name.trim();
+
+    if (trimmedName.length === 0) {
+      return name;
+    }
+
+    return `${trimmedName.charAt(0).toUpperCase()}${trimmedName.slice(1)}`;
   }
 }
