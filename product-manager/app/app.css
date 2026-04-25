@@ -3,13 +3,74 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --color-dark-purple: #240d49;
+  --color-shiny-purple: #812ff1;
+  --color-so-light-purple: #f1e5ff;
+  --color-not-white: #f6efff;
+  --color-not-black: #07010f;
+  --color-gray: #d9d9d9;
 }
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  @apply m-0 min-h-screen;
+  background-color: var(--color-not-white);
+  color: var(--color-not-black);
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+@layer components {
+  .page-shell {
+    @apply mx-auto min-h-screen w-full max-w-7xl p-4 sm:p-6;
+  }
+
+  .hero-shell {
+    @apply mb-6 flex flex-col gap-4 rounded-2xl px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between;
+    background-color: var(--color-dark-purple);
+  }
+
+  .hero-subtitle {
+    color: var(--color-so-light-purple);
+  }
+
+  .surface-card {
+    @apply rounded-xl border bg-white shadow-sm;
+    border-color: var(--color-gray);
+  }
+
+  .input-base {
+    @apply rounded-lg border px-3 py-2 outline-none transition;
+    border-color: var(--color-gray);
+  }
+
+  .input-base:focus {
+    border-color: var(--color-shiny-purple);
+  }
+
+  .btn-primary {
+    @apply rounded-lg px-4 py-2 text-sm font-semibold text-white transition opacity-95 disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: var(--color-shiny-purple);
+  }
+
+  .btn-primary:hover {
+    @apply transition opacity-100;
+  }
+
+  .btn-secondary {
+    @apply rounded-lg border px-4 py-2 text-sm font-semibold transition;
+    border-color: var(--color-gray);
+    color: var(--color-dark-purple);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-so-light-purple);
+  }
+
+  .table-head {
+    background-color: var(--color-so-light-purple);
+    color: var(--color-dark-purple);
+  }
+
+  .text-muted {
+    color: rgb(36 13 73 / 70%);
   }
 }
